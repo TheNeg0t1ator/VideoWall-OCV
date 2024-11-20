@@ -1,10 +1,11 @@
 from flask import Flask, Response, render_template_string
 import cv2
 import threading
+import time
 
 # Define target resolution
-target_width = 5120
-target_height = 3072
+target_width = 1280
+target_height = 768
 
 # Open the video stream
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -46,24 +47,29 @@ def process_frame(frame):
 # Generate frames for each video feed
 def generate_frame(frame_number):
     while True:
-        ret, frame = cap.read()  # Read a new frame from the camera
+        ret, frame = cap.read()
         if not ret:
             print("Error: Failed to read frame.")
             break
-            
-        downscaled_frame = process_frame(frame)
 
-        # Split the downscaled frame into smaller segments
+        downscaled_frame = process_frame(frame)
         height, width, _ = downscaled_frame.shape
         frame_width = width // 4
         frame_height = height // 3
         x_offset = (frame_number % 4) * frame_width
         y_offset = (frame_number // 4) * frame_height
-        sub_frame = downscaled_frame[y_offset:y_offset+frame_height, x_offset:x_offset+frame_width]
+        sub_frame = downscaled_frame[y_offset:y_offset + frame_height, x_offset:x_offset + frame_width]
+
         ret, buffer = cv2.imencode('.jpg', sub_frame)
         frame_bytes = buffer.tobytes()
+
+        # Include a timestamp in the frame
+        timestamp = time.time()  # Epoch time in seconds
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            b'Content-Type: image/jpeg\r\n'
+            b'X-Timestamp: ' + f'{timestamp}\r\n'.encode('utf-8') +
+            b'\r\n' + frame_bytes + b'\r\n')
+
 
 # Create a single Flask app to handle all video streams
 app = Flask(__name__)
