@@ -7,17 +7,20 @@ import time
 target_width = 1280
 target_height = 768
 
+# Shared frame storage
+latest_frame = None
+frame_lock = threading.Lock()
+
 # Open the video stream
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-# cap = cv2.VideoCapture("C:/Users/kobed/Videos/Content-warning.mp4", cv2.CAP_FFMPEG)
 if not cap.isOpened():
     print("Error: Could not open video.")
     exit()
 
 print("Video opened and streaming started.")
 
-# Resize and split frames into smaller pieces
 def process_frame(frame):
+    """Resize and pad the frame."""
     original_height, original_width, _ = frame.shape
     aspect_ratio = original_width / original_height
 
@@ -41,44 +44,60 @@ def process_frame(frame):
         )
 
     # Scale down the frame
-    downscaled_frame = cv2.resize(padded_frame, (target_width // 5, target_height // 5))
+    downscaled_frame = cv2.resize(padded_frame, (target_width // 1, target_height // 1))
     return downscaled_frame
 
-# Generate frames for each video feed
-def generate_frame(frame_number):
+def video_capture_thread():
+    """Continuously capture frames and store the latest one."""
+    global latest_frame
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Error: Failed to read frame.")
             break
 
-        downscaled_frame = process_frame(frame)
-        height, width, _ = downscaled_frame.shape
-        frame_width = width // 4
-        frame_height = height // 3
-        x_offset = (frame_number % 4) * frame_width
-        y_offset = (frame_number // 4) * frame_height
-        sub_frame = downscaled_frame[y_offset:y_offset + frame_height, x_offset:x_offset + frame_width]
+        processed = process_frame(frame)
+        with frame_lock:
+            latest_frame = processed
+
+# Start the video capture thread
+capture_thread = threading.Thread(target=video_capture_thread, daemon=True)
+capture_thread.start()
+
+# Flask app
+app = Flask(__name__)
+
+def generate_frame(frame_number):
+    """Generate a video feed."""
+    global latest_frame
+    while True:
+        with frame_lock:
+            if latest_frame is None:
+                continue
+            # Extract sub-frame for the given frame number
+            height, width, _ = latest_frame.shape
+            frame_width = width // 4
+            frame_height = height // 3
+            x_offset = (frame_number % 4) * frame_width
+            y_offset = (frame_number // 4) * frame_height
+            sub_frame = latest_frame[y_offset:y_offset + frame_height, x_offset:x_offset + frame_width]
 
         ret, buffer = cv2.imencode('.jpg', sub_frame)
+        if not ret:
+            continue
         frame_bytes = buffer.tobytes()
 
         # Include a timestamp in the frame
         timestamp = time.time()  # Epoch time in seconds
         yield (b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n'
-            b'X-Timestamp: ' + f'{timestamp}\r\n'.encode('utf-8') +
-            b'\r\n' + frame_bytes + b'\r\n')
-
-
-# Create a single Flask app to handle all video streams
-app = Flask(__name__)
+               b'Content-Type: image/jpeg\r\n'
+               b'X-Timestamp: ' + f'{timestamp}\r\n'.encode('utf-8') +
+               b'\r\n' + frame_bytes + b'\r\n')
 
 @app.route('/video_feed/<int:frame_number>')
 def video_feed(frame_number):
     return Response(generate_frame(frame_number), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# HTML template to display all streams in a 4x3 grid
 @app.route('/')
 def index():
     # Create a grid of 12 streams
@@ -116,8 +135,5 @@ def index():
     ''')
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=4012, threaded=True, use_reloader=False)
-
-# Release the video capture when done
-cap.release()
-cv2.destroyAllWindows()
+    from waitress import serve  # Production WSGI server
+    serve(app, host="0.0.0.0", port=4012)
