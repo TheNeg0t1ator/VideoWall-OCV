@@ -1,10 +1,29 @@
 import cv2
 import time
+import imagezmq
+import socket
 
 print("starting")
 
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 # cap = cv2.VideoCapture("C:/Users/kobed/Videos/Labeling/OUT.mp4")
+cap = cv2.VideoCapture("C:\\Users\\kobed\\Videos\\Max\\miami.mp4")
+
+ips = [
+    ['tcp://192.168.137.210:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555'],
+    ['tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555'],
+    ['tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555', 'tcp://192.168.137.119:5555']
+]
+
+# Create a 3x4 array of ImageSender instances
+senders = [
+    [imagezmq.ImageSender(connect_to=ip) for ip in row]
+    for row in ips
+]
+
+# sender = imagezmq.ImageSender(connect_to='tcp://192.168.13737.210:5555')
+rpi_name = socket.gethostname() # send RPi hostname with each image
+
 
 print("camera opened")
 if not cap.isOpened():
@@ -63,6 +82,8 @@ while True:
     # Create a blank canvas for displaying frames
     new_frame = downscaled_frame.copy()
 
+
+    
     # Show each frame
     for i in range(3):
         for j in range(4):
@@ -71,11 +92,13 @@ while True:
             # Extract the sub-frame
             sub_frame = downscaled_frame[y:y+frame_height, x:x+frame_width]
             new_frame[y:y+frame_height, x:x+frame_width] = sub_frame
-            cv2.imshow(f"Frame {i*4+j+1}", sub_frame)
-
+            # cv2.imshow(f"Frame {i*4+j+1}", sub_frame)
+            if (i == 0 and j == 0) or (i == 0 and j == 1):
+                senders[j][i].send_image(rpi_name, sub_frame)
+            
     # Wait briefly to refresh frames
-    if cv2.waitKey(16) == 27:  # Check if the escape key is pressed
-        break
+    # if cv2.waitKey(0) == 27:  # Check if the escape key is pressed
+    #     break
     
 cap.release()
 cv2.destroyAllWindows()
