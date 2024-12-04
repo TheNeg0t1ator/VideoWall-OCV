@@ -12,7 +12,7 @@ screen_height = 1024  # Replace with your screen height
 window_name = "Image Stream"
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
+print("configured.... start recieving")
 while True:  # Show streamed images until Ctrl-C
     rpi_name, image = image_hub.recv_image()
     
