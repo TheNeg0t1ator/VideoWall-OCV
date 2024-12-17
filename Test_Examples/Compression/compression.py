@@ -1,5 +1,5 @@
 import cv2
-from VideoSelector import ChooseCapDevice
+from Server.libs.VideoSelector import ChooseCapDevice
 
 def compress_frame(frame, compression_level):
     """

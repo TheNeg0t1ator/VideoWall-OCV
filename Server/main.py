@@ -3,7 +3,7 @@ import time
 import imagezmq
 import socket
 import yt_dlp
-from compressor import compress_frame as ImageCompressor
+from Test_Examples.Compression.compressor import compress_frame as ImageCompressor
 from concurrent.futures import ThreadPoolExecutor
 
 def get_youtube_stream_url(youtube_url):
