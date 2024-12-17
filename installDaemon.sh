@@ -7,8 +7,8 @@ PYTHON_FILE="$DESKTOP_PATH/client.py"
 SCRIPT_FILE="$DESKTOP_PATH/client.sh"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-pip install cv2
-pip install imagezmq
+pip install cv2 --break-system-packages
+pip install imagezmq --break-system-packages
 
 # Create the Python file
 cat > "$PYTHON_FILE" <<EOL
