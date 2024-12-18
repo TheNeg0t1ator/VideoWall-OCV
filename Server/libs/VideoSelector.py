@@ -91,7 +91,7 @@ def ChooseCapDevice():
 
         def update_webcam_list(self):
             webcams = []
-            for i in range(5):  # Check first 5 indices for connected webcams
+            for i in range(10):  # Check first 5 indices for connected webcams
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if cap.isOpened():
                     # Use device names if available, else fallback to index
